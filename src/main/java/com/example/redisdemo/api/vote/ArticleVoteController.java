@@ -55,11 +55,18 @@ public class ArticleVoteController {
         return ResponseEntity.ok().build();
     }
 
+    @RequestMapping(path = "/{articleId}/groups", method = RequestMethod.DELETE)
+    public ResponseEntity removeArticleFromGroups(@PathVariable String articleId,
+                                                  @RequestParam String groupIds) {
+        articleVoteService.removeArticleFromGroups(articleId, groupIds);
+        return ResponseEntity.ok().build();
+    }
+
     @RequestMapping(path = "/groups", method = RequestMethod.GET)
     public ResponseEntity getGroupArticles(@RequestParam String group,
                                            @RequestParam(defaultValue = "1") Integer page,
                                            @RequestParam(defaultValue = "time") String rule) {
-        List<Map<String, String>> articles = articleVoteService.getGroupArticles(group, page,rule);
+        List<Map<String, String>> articles = articleVoteService.getGroupArticles(group, page, rule);
         return ResponseEntity.ok(articles);
     }
 }

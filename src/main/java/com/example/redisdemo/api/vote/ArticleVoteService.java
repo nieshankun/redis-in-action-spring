@@ -18,6 +18,7 @@ public class ArticleVoteService {
     private static final int VOTE_SCORE = 432;
     private static final int ARTICLES_PER_PAGE = 1;
     private static final String ARTICLE = "article:";
+    private static final String GROUP = "group:";
 
     @Autowired
     private JedisCluster jedisCluster;
@@ -108,13 +109,26 @@ public class ArticleVoteService {
     /**
      * 对文章进行分组
      *
-     * @param articleId
-     * @param groupIds
+     * @param articleId 文章id
+     * @param groupIds  分组列表
      */
     public void addArticleToGroups(String articleId, String groupIds) {
         String[] groupIdArray = groupIds.split(",");
         for (String group : groupIdArray) {
-            jedisCluster.sadd("group:" + group, ARTICLE + articleId);
+            jedisCluster.sadd(GROUP + group, ARTICLE + articleId);
+        }
+    }
+
+    /**
+     * 从分组中移出文章信息
+     *
+     * @param articleId 文章id
+     * @param groupIds  分组列表
+     */
+    public void removeArticleFromGroups(String articleId, String groupIds) {
+        String[] groupIdArray = groupIds.split(",");
+        for (String group : groupIdArray) {
+            jedisCluster.srem(GROUP + group, ARTICLE + articleId);
         }
     }
 
@@ -131,7 +145,7 @@ public class ArticleVoteService {
         int end = start + ARTICLES_PER_PAGE;
         Set<String> ids = jedisCluster.zrevrange(order, 0, -1);
         List<Map<String, String>> articles = new ArrayList<>();
-        Set<String> groupIds = jedisCluster.smembers("group:" + groupName);
+        Set<String> groupIds = jedisCluster.smembers(GROUP + groupName);
         for (String id : ids) {
             if (groupIds.contains(id)) {
                 Map<String, String> articleData = jedisCluster.hgetAll(id);
