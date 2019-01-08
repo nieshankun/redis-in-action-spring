@@ -19,6 +19,8 @@ public class ArticleVoteService {
     private static final int ARTICLES_PER_PAGE = 1;
     private static final String ARTICLE = "article:";
     private static final String GROUP = "group:";
+    private static final String SCORE = "score:";
+    private static final String VOTED = "voted:";
 
     @Autowired
     private JedisCluster jedisCluster;
@@ -33,7 +35,7 @@ public class ArticleVoteService {
      */
     public String publishArticles(String user, String title, String link) {
         String articleId = String.valueOf(jedisCluster.incr(ARTICLE));
-        String voted = "voted:" + articleId;
+        String voted = VOTED + articleId;
         // 默认本人已投票
         jedisCluster.sadd(voted, user);
         // 设置投票有效时间为一周
@@ -46,10 +48,11 @@ public class ArticleVoteService {
         articleData.put("user", user);
         articleData.put("now", String.valueOf(now));
         articleData.put("votes", "1");
+        articleData.put("bonus", "0");
         // 保存文章相关信息
         jedisCluster.hmset(article, articleData);
         // 设置投票分数集合排序
-        jedisCluster.zadd("score:", now + VOTE_SCORE, article);
+        jedisCluster.zadd(SCORE, now + VOTE_SCORE, article);
         // 设置发布时间排序
         jedisCluster.zadd("time:", now, article);
         return articleId;
@@ -73,15 +76,38 @@ public class ArticleVoteService {
      * @return
      */
     public Map<String, String> voteArticle(String articleId, String user) {
+        checkVoteExpired(articleId);
+        if (jedisCluster.sadd(VOTED + articleId, user) == 1) {
+            jedisCluster.zincrby(SCORE, VOTE_SCORE, ARTICLE + articleId);
+            jedisCluster.hincrBy(ARTICLE + articleId, "votes", 1);
+        }
+        return getArticleById(articleId);
+    }
+
+    /**
+     * 文章投反对票(单独统计，但分数统一计算)
+     * @param articleId 文章id
+     * @param user 同一用户只能投一种票，只能投一次
+     * @return
+     */
+    public Map<String, String> voteBonusArticle(String articleId, String user) {
+        checkVoteExpired(articleId);
+        if (jedisCluster.sadd(VOTED + articleId, user) == 1) {
+            jedisCluster.zincrby(SCORE, -VOTE_SCORE, ARTICLE + articleId);
+            jedisCluster.hincrBy(ARTICLE + articleId, "bonus", 1);
+        }
+        return getArticleById(articleId);
+    }
+
+    /**
+     * 校验文章投票是否已结束
+     * @param articleId 文章id
+     */
+    private void checkVoteExpired(String articleId) {
         long cutoff = (System.currentTimeMillis() / 1000) - ONE_WEEK_IN_SECONDS;
         if (jedisCluster.zscore("time:", ARTICLE + articleId) < cutoff) {
             throw new VoteException("已过投票时间，不能继续投票");
         }
-        if (jedisCluster.sadd("voted:" + articleId, user) == 1) {
-            jedisCluster.zincrby("score:", VOTE_SCORE, ARTICLE + articleId);
-            jedisCluster.hincrBy(ARTICLE + articleId, "votes", 1);
-        }
-        return getArticleById(articleId);
     }
 
 

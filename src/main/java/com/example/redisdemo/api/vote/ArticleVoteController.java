@@ -41,6 +41,12 @@ public class ArticleVoteController {
         return ResponseEntity.ok(article);
     }
 
+    @RequestMapping(path = "/{articleId}/vote/bonus", method = RequestMethod.PATCH)
+    public ResponseEntity voteBonusArticle(@PathVariable String articleId, @RequestParam String user) {
+        Map<String, String> article = articleVoteService.voteBonusArticle(articleId, user);
+        return ResponseEntity.ok(article);
+    }
+
     @RequestMapping(path = "/sort", method = RequestMethod.GET)
     public ResponseEntity sortArticles(@RequestParam(defaultValue = "time") String rule,
                                        @RequestParam(defaultValue = "1") Integer page) {
